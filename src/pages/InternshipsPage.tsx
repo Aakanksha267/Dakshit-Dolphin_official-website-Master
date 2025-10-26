@@ -35,11 +35,13 @@ export default function InternshipsPage() {
   }, [internships, filterDepartment, filterMode]);
 
   const loadInternships = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('internships')
       .select('*')
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
+    if (error) {
+      console.error('Error fetching internships:', error);
+    }
     if (data) setInternships(data);
   };
 
@@ -67,22 +69,24 @@ export default function InternshipsPage() {
         ...formData,
       },
     ]);
-
-    if (!error) {
-      setSubmitted(true);
-      setTimeout(() => {
-        setShowApplicationForm(false);
-        setSubmitted(false);
-        setFormData({
-          name: '',
-          email: '',
-          phone: '',
-          department: '',
-          college: '',
-          message: '',
-        });
-      }, 2000);
+    if (error) {
+      console.error('Error submitting application:', error);
+      alert(error.message || "Form submission failed. Check Supabase table columns and policies.");
+      return;
     }
+    setSubmitted(true);
+    setTimeout(() => {
+      setShowApplicationForm(false);
+      setSubmitted(false);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        department: '',
+        college: '',
+        message: '',
+      });
+    }, 2000);
   };
 
   const departments = [...new Set(internships.map((i) => i.department))];
@@ -98,7 +102,6 @@ export default function InternshipsPage() {
           </p>
         </div>
       </section>
-
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -130,7 +133,6 @@ export default function InternshipsPage() {
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredInternships.map((internship) => (
             <Card key={internship.id} hoverable>
@@ -143,7 +145,6 @@ export default function InternshipsPage() {
                     </span>
                   </div>
                 </div>
-
                 <div className="space-y-2 mb-4">
                   <div className="flex items-center text-gray-600">
                     <MapPin className="h-4 w-4 mr-2" />
@@ -158,13 +159,11 @@ export default function InternshipsPage() {
                     <span className="text-sm">{internship.stipend}</span>
                   </div>
                 </div>
-
                 <div className="mb-4">
                   <p className="text-gray-600 text-sm line-clamp-3">{internship.description}</p>
                 </div>
-
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {internship.skills_required.slice(0, 3).map((skill, i) => (
+                  {(Array.isArray(internship.skills_required) ? internship.skills_required : []).slice(0, 3).map((skill, i) => (
                     <span
                       key={i}
                       className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
@@ -172,13 +171,12 @@ export default function InternshipsPage() {
                       {skill}
                     </span>
                   ))}
-                  {internship.skills_required.length > 3 && (
+                  {(Array.isArray(internship.skills_required) ? internship.skills_required.length : 0) > 3 && (
                     <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
-                      +{internship.skills_required.length - 3} more
+                      +{(internship.skills_required.length - 3)} more
                     </span>
                   )}
                 </div>
-
                 <Button onClick={() => handleApply(internship)} className="w-full">
                   Apply Now
                 </Button>
@@ -186,7 +184,6 @@ export default function InternshipsPage() {
             </Card>
           ))}
         </div>
-
         {filteredInternships.length === 0 && (
           <div className="text-center py-12">
             <Briefcase className="h-16 w-16 text-gray-400 mx-auto mb-4" />
@@ -194,7 +191,6 @@ export default function InternshipsPage() {
           </div>
         )}
       </section>
-
       {showApplicationForm && selectedInternship && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -207,7 +203,6 @@ export default function InternshipsPage() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
             <div className="p-6">
               {submitted ? (
                 <div className="text-center py-8">

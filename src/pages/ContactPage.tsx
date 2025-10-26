@@ -8,27 +8,33 @@ import { Mail, Phone, MapPin, CheckCircle } from 'lucide-react';
 export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
+    full_name: '',
     email: '',
     subject: '',
     message: '',
   });
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // For TypeScript, use: (e: React.FormEvent<HTMLFormElement>)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { error } = await supabase.from('contact_submissions').insert([formData]);
-
+    setErrorMsg('');
+    const { error } = await supabase.from('contacts').insert([formData]);
     if (!error) {
       setSubmitted(true);
+      setErrorMsg(''); // Always clear error on success
       setTimeout(() => {
         setSubmitted(false);
         setFormData({
-          name: '',
+          full_name: '',
           email: '',
           subject: '',
           message: '',
         });
       }, 3000);
+    } else {
+      setErrorMsg(error.message || 'Something went wrong');
+      console.error('Supabase insert error:', error);
     }
   };
 
@@ -46,10 +52,8 @@ export default function ContactPage() {
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-6">Get in Touch</h2>
             <p className="text-gray-600 mb-8">
-              Have questions about our programs? Want to partner with us? Fill out the form and we'll
-              get back to you within 24 hours.
+              Have questions about our programs? Want to partner with us? Fill out the form and we'll get back to you within 24 hours.
             </p>
-
             <div className="space-y-6">
               <div className="flex items-start">
                 <div className="flex-shrink-0">
@@ -62,7 +66,6 @@ export default function ContactPage() {
                   <p className="text-gray-600">123 Education Street, Tech City, IN 560001</p>
                 </div>
               </div>
-
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -74,7 +77,6 @@ export default function ContactPage() {
                   <p className="text-gray-600">+91 9876543210</p>
                 </div>
               </div>
-
               <div className="flex items-start">
                 <div className="flex-shrink-0">
                   <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -87,28 +89,29 @@ export default function ContactPage() {
                 </div>
               </div>
             </div>
-
             <div className="mt-8 aspect-video bg-gray-200 rounded-lg flex items-center justify-center">
               <MapPin className="h-16 w-16 text-gray-400" />
             </div>
           </div>
-
           <div className="bg-white rounded-lg shadow-md p-8">
             {submitted ? (
               <div className="text-center py-12">
                 <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                 <h3 className="text-2xl font-bold text-gray-900 mb-2">Message Sent!</h3>
-                <p className="text-gray-600">
-                  Thank you for reaching out. We'll get back to you soon.
-                </p>
+                <p className="text-gray-600">Thank you for reaching out. We'll get back to you soon.</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {errorMsg && (
+                  <div className="bg-red-100 text-red-800 px-4 py-2 rounded mb-2">
+                    {errorMsg}
+                  </div>
+                )}
                 <Input
                   label="Full Name"
-                  name="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={e => setFormData({ ...formData, full_name: e.target.value })}
                   required
                 />
                 <Input
@@ -116,21 +119,21 @@ export default function ContactPage() {
                   type="email"
                   name="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
                   required
                 />
                 <Input
                   label="Subject"
                   name="subject"
                   value={formData.subject}
-                  onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                  onChange={e => setFormData({ ...formData, subject: e.target.value })}
                   required
                 />
                 <TextArea
                   label="Message"
                   name="message"
                   value={formData.message}
-                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  onChange={e => setFormData({ ...formData, message: e.target.value })}
                   rows={6}
                   required
                 />

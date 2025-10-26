@@ -1,21 +1,31 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Testimonial } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import TextArea from '../components/TextArea';
 import { Star, CheckCircle } from 'lucide-react';
 
+interface Testimonial {
+  id: number;
+  student_name: string;
+  department: string;
+  quote: string;
+  photo_url?: string;
+  rating: number;
+  // add any more fields if needed
+}
+
 export default function TestimonialsPage() {
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    college: '',
-    program: '',
-    testimonial: '',
+    student_name: '',
+    department: '',
+    quote: '',
+    photo_url: '',
     rating: 5,
   });
 
@@ -23,33 +33,49 @@ export default function TestimonialsPage() {
     loadTestimonials();
   }, []);
 
+  // loadTestimonials must be async INSIDE a function, not at the top level
   const loadTestimonials = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('testimonials')
       .select('*')
-      .eq('approved', true)
+      .eq('status', 'approved')
       .order('created_at', { ascending: false });
-    if (data) setTestimonials(data);
+    if (error) {
+      console.error('Error fetching testimonials:', error);
+    }
+    if (Array.isArray(data)) {
+      setTestimonials(data);
+    } else {
+      setTestimonials([]);
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Correct async handleSubmit with event type if needed
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { error } = await supabase.from('testimonials').insert([formData]);
-
-    if (!error) {
-      setSubmitted(true);
-      setTimeout(() => {
-        setShowForm(false);
-        setSubmitted(false);
-        setFormData({
-          name: '',
-          college: '',
-          program: '',
-          testimonial: '',
-          rating: 5,
-        });
-      }, 3000);
+    // New submissions default to status='pending'
+    const { error } = await supabase.from('testimonials').insert([
+      { ...formData, status: 'pending' }
+    ]);
+    if (error) {
+      console.error('Error submitting testimonial:', error);
+      alert(error.message || "Form submission failed. Check Supabase columns and policies.");
+      return;
     }
+    setSubmitted(true);
+    setTimeout(() => {
+      setShowForm(false);
+      setSubmitted(false);
+      setFormData({
+        student_name: '',
+        department: '',
+        quote: '',
+        photo_url: '',
+        rating: 5,
+      });
+      // Optionally reload testimonials in case of admin auto-approval
+      // loadTestimonials();
+    }, 3000);
   };
 
   return (
@@ -68,23 +94,26 @@ export default function TestimonialsPage() {
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((testimonial) => (
-            <Card key={testimonial.id}>
+          {testimonials.map((t) => (
+            <Card key={t.id}>
               <div className="p-6">
                 <div className="flex items-center mb-4">
-                  {[...Array(testimonial.rating)].map((_, i) => (
+                  {[...Array(t.rating)].map((_, i) => (
                     <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                   ))}
                 </div>
-                <p className="text-gray-700 mb-4 italic">"{testimonial.testimonial}"</p>
+                <p className="text-gray-700 mb-4 italic">"{t.quote}"</p>
                 <div className="flex items-center">
-                  <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {testimonial.name.charAt(0)}
-                  </div>
+                  {t.photo_url ? (
+                    <img src={t.photo_url} alt={t.student_name} className="w-12 h-12 rounded-full" />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                      {t.student_name?.charAt(0)}
+                    </div>
+                  )}
                   <div className="ml-3">
-                    <div className="font-semibold text-gray-900">{testimonial.name}</div>
-                    <div className="text-sm text-gray-600">{testimonial.college}</div>
-                    <div className="text-xs text-teal-600">{testimonial.program}</div>
+                    <div className="font-semibold text-gray-900">{t.student_name}</div>
+                    <div className="text-xs text-teal-600">{t.department}</div>
                   </div>
                 </div>
               </div>
@@ -110,32 +139,31 @@ export default function TestimonialsPage() {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <Input
                     label="Full Name"
-                    name="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    name="student_name"
+                    value={formData.student_name}
+                    onChange={e => setFormData({ ...formData, student_name: e.target.value })}
                     required
                   />
                   <Input
-                    label="College/University"
-                    name="college"
-                    value={formData.college}
-                    onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-                    required
-                  />
-                  <Input
-                    label="Program/Internship Attended"
-                    name="program"
-                    value={formData.program}
-                    onChange={(e) => setFormData({ ...formData, program: e.target.value })}
+                    label="Department"
+                    name="department"
+                    value={formData.department}
+                    onChange={e => setFormData({ ...formData, department: e.target.value })}
                     required
                   />
                   <TextArea
-                    label="Your Experience"
-                    name="testimonial"
-                    value={formData.testimonial}
-                    onChange={(e) => setFormData({ ...formData, testimonial: e.target.value })}
+                    label="Testimonial"
+                    name="quote"
+                    value={formData.quote}
+                    onChange={e => setFormData({ ...formData, quote: e.target.value })}
                     rows={4}
                     required
+                  />
+                  <Input
+                    label="Photo URL (optional)"
+                    name="photo_url"
+                    value={formData.photo_url}
+                    onChange={e => setFormData({ ...formData, photo_url: e.target.value })}
                   />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Rating</label>

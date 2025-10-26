@@ -12,6 +12,7 @@ import ContactPage from './pages/ContactPage';
 import FAQPage from './pages/FAQPage';
 import AdminPage from './pages/AdminPage';
 
+
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
 

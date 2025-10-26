@@ -1,11 +1,22 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Event } from '../types';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
 import TextArea from '../components/TextArea';
-import { Calendar, MapPin, Users, X, CheckCircle, Clock } from 'lucide-react';
+import { Calendar, MapPin,  X, CheckCircle, } from 'lucide-react';
+
+// TypeScript interface matching your Supabase table
+interface Event {
+  id: number;
+  created_at: string;
+  title: string;
+  description: string;
+  date: string;      // yyyy-mm-dd (Supabase 'date')
+  time: string;      // time text, e.g. "10:00 AM"
+  is_past: boolean;
+  image_url?: string;
+}
 
 export default function EventsPage() {
   const [upcomingEvents, setUpcomingEvents] = useState<Event[]>([]);
@@ -14,6 +25,7 @@ export default function EventsPage() {
   const [showRegistrationForm, setShowRegistrationForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // Registration form state
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -26,41 +38,45 @@ export default function EventsPage() {
     loadEvents();
   }, []);
 
+  // Fetch events from Supabase
   const loadEvents = async () => {
-    const now = new Date().toISOString();
+    const today = new Date().toISOString().split('T')[0]; // yyyy-mm-dd
+    // Upcoming: is_past == false and date >= today
     const { data: upcoming } = await supabase
       .from('events')
       .select('*')
-      .eq('is_active', true)
-      .gte('event_date', now)
-      .order('event_date', { ascending: true });
+      .eq('is_past', false)
+      .gte('date', today)
+      .order('date', { ascending: true });
 
+    // Past: is_past == true or date < today (show 6 recent)
     const { data: past } = await supabase
       .from('events')
       .select('*')
-      .eq('is_active', true)
-      .lt('event_date', now)
-      .order('event_date', { ascending: false })
+      .or(`is_past.eq.true,date.lt.${today}`)
+      .order('date', { ascending: false })
       .limit(6);
 
     if (upcoming) setUpcomingEvents(upcoming);
     if (past) setPastEvents(past);
   };
 
+  // Show registration modal
   const handleRegister = (event: Event) => {
     setSelectedEvent(event);
     setShowRegistrationForm(true);
   };
 
+  // Handle registration form submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedEvent) return;
     const { error } = await supabase.from('event_registrations').insert([
       {
-        event_id: selectedEvent?.id,
+        event_id: selectedEvent.id,
         ...formData,
       },
     ]);
-
     if (!error) {
       setSubmitted(true);
       setTimeout(() => {
@@ -77,6 +93,7 @@ export default function EventsPage() {
     }
   };
 
+  // Format date as "Month Day, Year"
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'long',
@@ -85,16 +102,17 @@ export default function EventsPage() {
     });
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
+  // Render a single event card
   const EventCard = ({ event, isPast = false }: { event: Event; isPast?: boolean }) => (
     <Card hoverable>
-      <div className="h-48 bg-gradient-to-br from-blue-500 to-teal-600 relative">
+      <div className="h-48 bg-gradient-to-br from-blue-500 to-teal-600 relative flex items-center justify-center">
+        {event.image_url && (
+          <img
+            src={event.image_url}
+            alt={event.title}
+            className="object-cover w-full h-full rounded-t-lg absolute top-0 left-0 opacity-70"
+          />
+        )}
         {isPast && (
           <div className="absolute top-4 right-4 bg-gray-800 text-white px-3 py-1 rounded-full text-sm font-semibold">
             Past Event
@@ -102,29 +120,16 @@ export default function EventsPage() {
         )}
       </div>
       <div className="p-6">
-        <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full mb-3">
-          {event.event_type}
-        </span>
         <h3 className="text-xl font-bold text-gray-900 mb-3">{event.title}</h3>
         <div className="space-y-2 mb-4">
           <div className="flex items-center text-gray-600">
             <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm">{formatDate(event.event_date)}</span>
-          </div>
-          <div className="flex items-center text-gray-600">
-            <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm">{formatTime(event.event_date)}</span>
+            <span className="text-sm">{formatDate(event.date)} {event.time && '| ' + event.time}</span>
           </div>
           <div className="flex items-center text-gray-600">
             <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-            <span className="text-sm">{event.mode} {event.location && `- ${event.location}`}</span>
+            <span className="text-sm">{event.description.slice(0, 40)}</span>
           </div>
-          {event.max_participants && (
-            <div className="flex items-center text-gray-600">
-              <Users className="h-4 w-4 mr-2 flex-shrink-0" />
-              <span className="text-sm">Max {event.max_participants} participants</span>
-            </div>
-          )}
         </div>
         <p className="text-gray-600 text-sm mb-4 line-clamp-2">{event.description}</p>
         {!isPast && (
@@ -142,8 +147,7 @@ export default function EventsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">Events & Workshops</h1>
           <p className="text-xl text-blue-50 max-w-3xl">
-            Join our engaging events, workshops, and seminars to enhance your skills and network with
-            industry professionals
+            Join our engaging events, workshops, and seminars to enhance your skills and network with industry professionals
           </p>
         </div>
       </section>
@@ -188,7 +192,6 @@ export default function EventsPage() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
             <div className="p-6">
               {submitted ? (
                 <div className="text-center py-8">
